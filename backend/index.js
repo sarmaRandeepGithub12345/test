@@ -1,60 +1,56 @@
-import express from "express"
-import cors from "cors"
-import pg from 'pg'
-import dotenv from "dotenv"
-import helmet from "helmet"
+import express from "express";
+import qrcode from 'qrcode';
+import mongoose from "mongoose";
+import helmet from "helmet";
+import dotenv from 'dotenv'
 dotenv.config()
-import fileUpload from "express-fileupload"
-import { requestMiddleware } from "./middlewares/middlewareRequest.js"
-import morgan from "morgan"
-import { sendResponse } from "./utils/responseObj.js"
-import { createTablesFunction } from "./database/createTables.js"
-const PORT =process.env.PORT
-const app =express()
-//psql configuration and connection
+import connectMongo from "./database/db.js"
+import fileUpload from "express-fileupload";
+import { requestMiddleware } from "./middlewares/reuqest.middleware.js";
+import AuthRoute from "./routes/auth.route.js";
+import {fileURLToPath} from 'url';
+import path from "path";
+import {createPool} from 'mysql';
 
+const app = express();
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
-const poolConfig = {
-    host:process.env.DBURL,
-    port:process.env.DBPORT,
-    user: process.env.DBUSER,
-    password: process.env.DBPASSWORD,
-    
-    database: process.env.DATABASE
-}
-
-export const pool = new pg.Pool(poolConfig)
-
-pool.connect(async(error)=>{
-    if (error) {
-        console.error(error);
-        return;
-      }
-    
-      console.log('Connected to database.');
+export const pool = createPool({
+    host:"localhost",
+    user:"root",
+    password:"",
+    database:"LibraryManagement",
+    connectionLimit: 10
 })
-//middlewares
+
+pool.query(`CREATE TABLE IF NOT EXISTS users (
+    id UUID NOT NULL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+    
+);
+  `,(err,result,fields)=>{
+    if(err){
+        return console.log(err);
+    }
+   // return console.log('Result',result)
+});
+
+
+//connectMongo()
 app.use(fileUpload({
     useTempFiles:true
 }))
-//Helmet helps you secure your Express apps by setting various HTTP headers.
 app.use(helmet())
 app.use(helmet.crossOriginResourcePolicy({
     policy:"cross-origin"
 }))
-app.use(cors())
+
 app.use(express.json())
 app.use(express.urlencoded({extended:true}))
 app.use(requestMiddleware)
-//create the tables
-await createTablesFunction()
+app.use('/auth',AuthRoute)
 
-app.get("/",(req,res)=>{
-    
-    return sendResponse(res,200,"good",{"ok":"ok"})
-})
-
-//await pool.end()
-app.listen(PORT,()=>{
-    console.log(`Server running on port = ${PORT}`)
+app.listen(process.env.PORT || 5000,()=>{
+    console.log(`Server is running on port ${process.env.PORT}`)
 })
